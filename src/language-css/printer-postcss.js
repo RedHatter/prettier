@@ -1,5 +1,6 @@
 "use strict";
 
+const fs = require("fs");
 const clean = require("./clean");
 const embed = require("./embed");
 const { insertPragma } = require("./pragma");
@@ -83,6 +84,43 @@ function shouldPrintComma(options) {
   }
 }
 
+let cssSortOrder = null;
+function sortRule(rule, options) {
+  if (options.cssSortOrder) {
+    if (cssSortOrder == null) {
+      cssSortOrder = fs
+        .readFileSync(options.cssSortOrder)
+        .toString()
+        .split("\n");
+    }
+    rule.nodes.sort((a, b) => {
+      let first = cssSortOrder.indexOf(a.prop);
+      if (first == -1) {
+        first = cssSortOrder.length;
+      }
+
+      let second = cssSortOrder.indexOf(b.prop);
+      if (second == -1) {
+        second = cssSortOrder.length;
+      }
+
+      return first - second;
+    });
+  } else {
+    rule.nodes.sort((a, b) => {
+      if (a.prop > b.prop) {
+        return 1;
+      }
+
+      if (b.prop > a.prop) {
+        return -1;
+      }
+
+      return 0;
+    });
+  }
+}
+
 function genericPrint(path, options, print) {
   const node = path.getValue();
 
@@ -128,6 +166,7 @@ function genericPrint(path, options, print) {
       return text;
     }
     case "css-rule": {
+      sortRule(node, options);
       return concat([
         path.call(print, "selector"),
         node.important ? " !important" : "",
